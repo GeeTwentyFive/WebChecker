@@ -42,8 +42,14 @@ if len(config["alert_email_addresses"]) == 0:
 	sys.exit(1)
 
 
-email_server = smtplib.SMTP_SSL(config["webchecker_email_server"], 465, context=ssl.create_default_context())
-email_server.login(config["webchecker_email_address"], config["webchecker_email_password"])
+try: email_server = smtplib.SMTP_SSL(config["webchecker_email_server"], 465, context=ssl.create_default_context())
+except:
+	print(f"ERROR: Failed to connect to email server '{config["webchecker_email_server"]}'")
+	sys.exit(1)
+try: email_server.login(config["webchecker_email_address"], config["webchecker_email_password"])
+except:
+	print("ERROR: Failed to log in to email server")
+	sys.exit(1)
 
 
 while True:
@@ -51,11 +57,14 @@ while True:
 		try: uo = urllib.request.urlopen(target_website)
 		except:
 			print(f"ERROR: Failed to fetch HTML from {target_website}")
-			email_server.sendmail(
+			try: email_server.sendmail(
 				config["webchecker_email_address"],
 				config["alert_email_addresses"],
 				f"Website '{target_website}' might be down"
 			)
+			except:
+				print("ERROR: Failed to send down alert email")
+				sys.exit(1)
 			continue
 		
 		soup = BeautifulSoup(uo.read(), features="html.parser")
