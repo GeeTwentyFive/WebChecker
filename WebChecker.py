@@ -2,6 +2,8 @@ import os
 import json
 import sys
 import time
+import smtplib
+import ssl
 import urllib.request
 
 from bs4 import BeautifulSoup
@@ -10,6 +12,7 @@ from bs4 import BeautifulSoup
 CONFIG_FILE_NAME = "WebChecker_config.json"
 DEFAULT_CONFIG = {
 	"target_websites": [],
+	"webchecker_email_server": "smtp.gmail.com",
 	"webchecker_email_address": "",
 	"webchecker_email_password": "",
 	"alert_email_addresses": [],
@@ -34,20 +37,12 @@ if len(config["target_websites"]) == 0:
 	print(f"ERROR: Zero target websites provided in {CONFIG_FILE_NAME}")
 	sys.exit(1)
 
-if len(config["webchecker_email_address"]) == 0:
-	print(f"ERROR: WebChecker email address not provided in {CONFIG_FILE_NAME}")
-	sys.exit(1)
-
-if len(config["webchecker_email_password"]) == 0:
-	print(f"ERROR: WebChecker email password not provided in {CONFIG_FILE_NAME}")
-	sys.exit(1)
-
 if len(config["alert_email_addresses"]) == 0:
 	print(f"ERROR: Zero alert email addresses provided in {CONFIG_FILE_NAME}")
 	sys.exit(1)
 
 
-# TODO: Login to email server via config["webchecker_email_address"] + config["webchecker_email_password"]
+# TODO: Login to provided email server via provided email address and password
 
 
 while True:
