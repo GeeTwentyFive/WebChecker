@@ -7,6 +7,7 @@ import ssl
 import urllib.request
 
 from bs4 import BeautifulSoup
+from openai import OpenAI
 
 
 CONFIG_FILE_NAME = "WebChecker_config.json"
@@ -42,15 +43,10 @@ if len(config["alert_email_addresses"]) == 0:
 	sys.exit(1)
 
 
-try: email_server = smtplib.SMTP_SSL(config["webchecker_email_server"], 465, context=ssl.create_default_context())
-except:
-	print(f"ERROR: Failed to connect to email server '{config["webchecker_email_server"]}'")
-	sys.exit(1)
-try: email_server.login(config["webchecker_email_address"], config["webchecker_email_password"])
-except:
-	print("ERROR: Failed to log in to email server")
-	sys.exit(1)
+email_server = smtplib.SMTP_SSL(config["webchecker_email_server"], 465, context=ssl.create_default_context())
+email_server.login(config["webchecker_email_address"], config["webchecker_email_password"])
 
+openai_client = OpenAI() # TODO
 
 while True:
 	for target_website in config["target_websites"]:
