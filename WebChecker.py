@@ -42,7 +42,8 @@ if len(config["alert_email_addresses"]) == 0:
 	sys.exit(1)
 
 
-# TODO: Login to provided email server via provided email address and password
+email_server = smtplib.SMTP_SSL(config["webchecker_email_server"], 465, context=ssl.create_default_context())
+email_server.login(config["webchecker_email_address"], config["webchecker_email_password"])
 
 
 while True:
@@ -50,8 +51,11 @@ while True:
 		try: uo = urllib.request.urlopen(target_website)
 		except:
 			print(f"ERROR: Failed to fetch HTML from {target_website}")
-			for alert_email_address in config["alert_email_addresses"]:
-				pass # TODO: EMAIL
+			email_server.sendmail(
+				config["webchecker_email_address"],
+				config["alert_email_addresses"],
+				f"Website '{target_website}' might be down"
+			)
 			continue
 		
 		soup = BeautifulSoup(uo.read(), features="html.parser")
