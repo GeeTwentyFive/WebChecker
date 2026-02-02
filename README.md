@@ -19,12 +19,15 @@
         "https://www.google.com"
     ],
     "webchecker_email_server": "smtp.gmail.com",
+    "webchecker_email_server_port": 465,
     "webchecker_email_address": "example@gmail.com",
     "webchecker_email_password": "example123",
     "alert_email_addresses": [
         "target1@example.com",
         "target2@example.com"
     ],
-    "check_interval": 3600.0
+    "openai_api_key": "sk-proj-EXAMPLE",
+    "per_website_check_interval": 60.0,
+    "all_checks_interval": 3600.0
 }
 ```
