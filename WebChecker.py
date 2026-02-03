@@ -19,8 +19,7 @@ DEFAULT_CONFIG = {
 	"webchecker_email_password": "",
 	"alert_email_addresses": [],
 	"openai_api_key": "",
-	"per_website_check_interval": 60.0,
-	"all_checks_interval": 3600.0
+	"check_interval": 3600.0
 }
 
 
@@ -60,9 +59,11 @@ openai_client = OpenAI(api_key=config["openai_api_key"])
 print("Running")
 while True:
 	for target_website in config["target_websites"]:
+		print(f"Checking '{target_website}' ...")
+
 		try: uo = urllib.request.urlopen(target_website)
 		except Exception as e:
-			print(f"ERROR: Failed to fetch HTML from {target_website}\n{str(e)}")
+			print(f"ERROR: Failed to fetch HTML from '{target_website}'\n{str(e)}")
 			try: email_server.sendmail(
 				config["webchecker_email_address"],
 				config["alert_email_addresses"],
@@ -74,23 +75,29 @@ while True:
 		soup = BeautifulSoup(uo.read(), features="html.parser")
 		for elem in soup(["script", "style"]): elem.decompose()
 
-		try: response = openai_client.moderations.create(
-			model="omni-moderation-latest",
-			input=soup.get_text()
-		)
-		except Exception as e:
-			print(f"ERROR: Failed to get response from OpenAI\n{str(e)}")
-			continue
+		def chunks(lst, chunk_size=2000):
+			for i in range(0, len(lst), chunk_size):
+				yield lst[i:i+chunk_size]
 
-		for result in response["results"]:
-			if result["flagged"] == True:
-				try: email_server.sendmail(
-					config["webchecker_email_address"],
-					config["alert_email_addresses"],
-					f"Potentially inappropriate content found on '{target_website}':\n{json.dumps(result)}"
-				)
-				except Exception as e: print(f"ERROR: Failed to send potential inappropriate content alert email\n{str(e)}")
-		
-		time.sleep(config["per_website_check_interval"])
+		for chunk in chunks(soup.get_text(strip=True)):
+			try: response = openai_client.moderations.create(
+				model="omni-moderation-latest",
+				input=chunk
+			)
+			except Exception as e:
+				print(f"ERROR: Failed to get response from OpenAI\n{str(e)}")
+				if "429" in str(e): time.sleep(361.0) # takes 6 minutes to reset token rate limit on OpenAI API free tier
+				continue
 
-	time.sleep(config["all_checks_interval"])
+			for result in response["results"]:
+				if result["flagged"] == True:
+					try: email_server.sendmail(
+						config["webchecker_email_address"],
+						config["alert_email_addresses"],
+						f"Potentially inappropriate content found on '{target_website}':\n{json.dumps(result)}"
+					)
+					except Exception as e: print(f"ERROR: Failed to send potential inappropriate content alert email\n{str(e)}")
+			
+			time.sleep(61.0) # takes 1 minute to reset request rate limit on OpenAI API free tier
+
+	time.sleep(config["check_interval"])
