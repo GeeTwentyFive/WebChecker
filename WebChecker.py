@@ -5,6 +5,7 @@ import time
 import smtplib
 import ssl
 import urllib.request
+import urllib.error
 
 from bs4 import BeautifulSoup
 from openai import OpenAI
@@ -53,6 +54,18 @@ email_server = smtplib.SMTP_SSL(
 )
 email_server.login(config["webchecker_email_address"], config["webchecker_email_password"])
 
+def send_alerts(msg: str) -> None:
+	print(msg)
+
+	try: email_server.sendmail(
+		config["webchecker_email_address"],
+		config["alert_email_addresses"],
+		msg
+	)
+	except Exception as e: print(f"ERROR: Failed to send alert email\n{str(e)}")
+
+	# TODO: IPC for GUI
+
 print("Requesting OpenAI session...")
 openai_client = OpenAI(api_key=config["openai_api_key"])
 
@@ -62,42 +75,43 @@ while True:
 		print(f"Checking '{target_website}' ...")
 
 		try: uo = urllib.request.urlopen(target_website)
+		except urllib.error.URLError as e:
+			send_alerts(f"URLError encountered for '{target_website}'\nReason: {str(e.reason)}")
+			continue
+		except urllib.error.HTTPError as e:
+			send_alerts(f"HTTPError encountered for '{target_website}'\nHTTP code: {str(e.code)}\nReason: {str(e.reason)}")
+			continue
 		except Exception as e:
-			print(f"ERROR: Failed to fetch HTML from '{target_website}'\n{str(e)}")
-			try: email_server.sendmail(
-				config["webchecker_email_address"],
-				config["alert_email_addresses"],
-				f"Website '{target_website}' might be down"
-			)
-			except Exception as e: print(f"ERROR: Failed to send down alert email\n{str(e)}")
+			send_alerts(f"Unknown exception encountered for '{target_website}'\n{str(e)}")
 			continue
 
 		soup = BeautifulSoup(uo.read(), features="html.parser")
 		for elem in soup(["script", "style"]): elem.decompose()
 
-		def chunks(lst, chunk_size=2000):
+		def chunks(lst: list, chunk_size: int):
 			for i in range(0, len(lst), chunk_size):
 				yield lst[i:i+chunk_size]
 
-		for chunk in chunks(soup.get_text(strip=True)):
+		for chunk in chunks(soup.get_text(separator="\n", strip=True), 1000):
 			try: response = openai_client.moderations.create(
 				model="omni-moderation-latest",
 				input=chunk
 			)
 			except Exception as e:
-				print(f"ERROR: Failed to get response from OpenAI\n{str(e)}")
-				if "429" in str(e): time.sleep(361.0) # takes 6 minutes to reset token rate limit on OpenAI API free tier
+				if "429" in str(e):
+					print("OpenAI API token rate limit reached, waiting for reset...")
+					time.sleep(361.0) # takes 6 minutes to reset token rate limit on OpenAI API
+				else: print(f"ERROR: Failed to get response from OpenAI\n{str(e)}")
 				continue
-
-			for result in response["results"]:
-				if result["flagged"] == True:
-					try: email_server.sendmail(
-						config["webchecker_email_address"],
-						config["alert_email_addresses"],
-						f"Potentially inappropriate content found on '{target_website}':\n{json.dumps(result)}"
-					)
-					except Exception as e: print(f"ERROR: Failed to send potential inappropriate content alert email\n{str(e)}")
 			
-			time.sleep(61.0) # takes 1 minute to reset request rate limit on OpenAI API free tier
+			for result in response.results:
+				if result.flagged == True:
+					send_alerts(
+						f"Potentially inappropriate content found on '{target_website}':\n"
+						f"\nCategories:\n{str(result.categories).replace(" ", "\n")}\n"
+						f"\nWithin input:\n{chunk}\n"
+						)
+			
+			time.sleep(2.01) # because omni-moderation-latest Requests-Per-Minute rate limit = 500 RPM (on tiers 1 & 2)
 
 	time.sleep(config["check_interval"])
