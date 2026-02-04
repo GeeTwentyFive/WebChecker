@@ -114,4 +114,5 @@ while True:
 			
 			time.sleep(2.01) # because omni-moderation-latest Requests-Per-Minute rate limit = 500 RPM (on tiers 1 & 2)
 
+	print(f"Finished checking target websites, sleeping for {str(config["check_interval"])} seconds...")
 	time.sleep(config["check_interval"])
