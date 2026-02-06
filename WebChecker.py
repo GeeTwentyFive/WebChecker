@@ -6,6 +6,7 @@ import smtplib
 import ssl
 import urllib.request
 import urllib.error
+from threading import Thread
 
 from bs4 import BeautifulSoup
 from openai import OpenAI
@@ -65,60 +66,63 @@ def send_alert_emails(msg: str) -> None:
 print("Requesting OpenAI session...")
 openai_client = OpenAI(api_key=config["openai_api_key"])
 
-print("Running")
-while True: # TODO: Run in another (daemon) thread
-	for target_website in config["target_websites"]:
-		print(f"Checking '{target_website}' ...")
+def checker_loop():
+	while True:
+		for target_website in config["target_websites"]:
+			print(f"Checking '{target_website}' ...")
 
-		# TODO: Update data for web GUI
-		error_msg = None
-		try: uo = urllib.request.urlopen(target_website)
-		except urllib.error.URLError as e:
-			error_msg = f"URLError encountered for '{target_website}'\nReason: {str(e.reason)}"
-		except urllib.error.HTTPError as e:
-			error_msg = f"HTTPError encountered for '{target_website}'\nHTTP code: {str(e.code)}\nReason: {str(e.reason)}"
-		except Exception as e:
-			error_msg = f"Unknown exception encountered for '{target_website}'\n{str(e)}"
-		if error_msg:
-			print(error_msg)
-			send_alert_emails(error_msg)
-			continue
-
-		soup = BeautifulSoup(uo.read(), features="html.parser")
-		for elem in soup(["script", "style"]): elem.decompose()
-
-		def chunks(lst: list, chunk_size: int):
-			for i in range(0, len(lst), chunk_size):
-				yield lst[i:i+chunk_size]
-
-		for chunk in chunks(soup.get_text(separator="\n", strip=True), 1000):
-			try: response = openai_client.moderations.create(
-				model="omni-moderation-latest",
-				input=chunk
-			)
+			# TODO: Update data for web GUI
+			error_msg = None
+			try: uo = urllib.request.urlopen(target_website)
+			except urllib.error.URLError as e:
+				error_msg = f"URLError encountered for '{target_website}'\nReason: {str(e.reason)}"
+			except urllib.error.HTTPError as e:
+				error_msg = f"HTTPError encountered for '{target_website}'\nHTTP code: {str(e.code)}\nReason: {str(e.reason)}"
 			except Exception as e:
-				if "429" in str(e):
-					print("OpenAI API token rate limit reached, waiting for reset...")
-					time.sleep(361.0) # takes 6 minutes to reset token rate limit on OpenAI API
-				else: print(f"ERROR: Failed to get response from OpenAI\n{str(e)}")
+				error_msg = f"Unknown exception encountered for '{target_website}'\n{str(e)}"
+			if error_msg:
+				print(error_msg)
+				send_alert_emails(error_msg)
 				continue
-			
-			for result in response.results:
-				if result.flagged == True:
-					# TODO: Update data for web GUI
-					# TODO: Extract and send only `True` categories
-					msg = (
-						f"Potentially inappropriate content found on '{target_website}':\n"
-						f"\nCategories:\n{str(result.categories).replace(" ", "\n")}\n"
-						f"\nWithin input:\n{chunk}\n"
-					)
-					print(msg)
-					send_alert_emails(msg)
-			
-			time.sleep(2.01) # because omni-moderation-latest Requests-Per-Minute rate limit = 500 RPM (on tiers 1 & 2)
 
-	print(f"Finished checking target websites, sleeping for {str(config["check_interval"])} seconds...")
-	time.sleep(config["check_interval"])
+			soup = BeautifulSoup(uo.read(), features="html.parser")
+			for elem in soup(["script", "style"]): elem.decompose()
+
+			def chunks(lst: list, chunk_size: int):
+				for i in range(0, len(lst), chunk_size):
+					yield lst[i:i+chunk_size]
+
+			for chunk in chunks(soup.get_text(separator="\n", strip=True), 1000):
+				try: response = openai_client.moderations.create(
+					model="omni-moderation-latest",
+					input=chunk
+				)
+				except Exception as e:
+					if "429" in str(e):
+						print("OpenAI API token rate limit reached, waiting for reset...")
+						time.sleep(361.0) # takes 6 minutes to reset token rate limit on OpenAI API
+					else: print(f"ERROR: Failed to get response from OpenAI\n{str(e)}")
+					continue
+				
+				for result in response.results:
+					if result.flagged == True:
+						# TODO: Update data for web GUI
+						# TODO: Extract and send only `True` categories
+						msg = (
+							f"Potentially inappropriate content found on '{target_website}':\n"
+							f"\nCategories:\n{str(result.categories).replace(" ", "\n")}\n"
+							f"\nWithin input:\n{chunk}\n"
+						)
+						print(msg)
+						send_alert_emails(msg)
+				
+				time.sleep(2.01) # because omni-moderation-latest Requests-Per-Minute rate limit = 500 RPM (on tiers 1 & 2)
+
+		print(f"Finished checking target websites, sleeping for {str(config["check_interval"])} seconds...")
+		time.sleep(config["check_interval"])
+
+print("Running checker...")
+Thread(target=checker_loop, daemon=True).start()
 
 
 # TODO: Web GUI (const template string -- implementation -- run())
