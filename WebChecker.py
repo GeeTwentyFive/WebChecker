@@ -13,7 +13,7 @@ from openai import OpenAI
 
 
 CONFIG_FILE_NAME = "WebChecker_config.json"
-DEFAULT_CONFIG = { # TODO: Include Web GUI port
+DEFAULT_CONFIG = {
 	"target_websites": [],
 	"webchecker_email_server": "smtp.gmail.com",
 	"webchecker_email_server_port": 465,
@@ -21,7 +21,8 @@ DEFAULT_CONFIG = { # TODO: Include Web GUI port
 	"webchecker_email_password": "",
 	"alert_email_addresses": [],
 	"openai_api_key": "",
-	"check_interval": 3600.0
+	"check_interval": 3600.0,
+	"web_gui_port": 50000
 }
 
 
