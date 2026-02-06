@@ -10,6 +10,7 @@ from threading import Thread
 
 from bs4 import BeautifulSoup
 from openai import OpenAI
+import bottle
 
 
 CONFIG_FILE_NAME = "WebChecker_config.json"
@@ -129,4 +130,12 @@ print("Running checker...")
 Thread(target=checker_loop, daemon=True).start()
 
 
-# TODO: Web GUI (const template string -- implementation -- run())
+WEB_GUI_TEMPLATE = ( # TODO
+	"<p>TEST</p>"
+)
+
+@bottle.route("/")
+def web_gui(): # TODO
+	return bottle.template(WEB_GUI_TEMPLATE)
+
+#bottle.run(port=config["web_gui_port"])

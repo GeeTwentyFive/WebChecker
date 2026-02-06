@@ -1,6 +1,6 @@
 # Dependencies
 
-`pip install beautifulsoup4 openai`
+`pip install beautifulsoup4 openai bottle`
 
 
 # Usage
