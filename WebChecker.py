@@ -26,6 +26,9 @@ DEFAULT_CONFIG = {
 }
 
 
+website_states = {} # TODO
+
+
 if not os.path.isfile(CONFIG_FILE_NAME):
 	print(f"Config file ({CONFIG_FILE_NAME}) not found, creating...")
 	with open(CONFIG_FILE_NAME, "w") as f:
@@ -72,7 +75,7 @@ def checker_loop():
 		for target_website in config["target_websites"]:
 			print(f"Checking '{target_website}' ...")
 
-			# TODO: Update data for web GUI
+			# TODO: Update `website_states` for web GUI
 			error_msg = None
 			try: uo = urllib.request.urlopen(target_website)
 			except urllib.error.URLError as e:
@@ -107,7 +110,7 @@ def checker_loop():
 				
 				for result in response.results:
 					if result.flagged == True:
-						# TODO: Update data for web GUI
+						# TODO: Update `website_states` for web GUI
 						# TODO: Extract and send only `True` categories
 						msg = (
 							f"Potentially inappropriate content found on '{target_website}':\n"
