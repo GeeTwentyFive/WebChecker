@@ -12,7 +12,7 @@ from openai import OpenAI
 
 
 CONFIG_FILE_NAME = "WebChecker_config.json"
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG = { # TODO: Include Web GUI port
 	"target_websites": [],
 	"webchecker_email_server": "smtp.gmail.com",
 	"webchecker_email_server_port": 465,
@@ -54,9 +54,7 @@ email_server = smtplib.SMTP_SSL(
 )
 email_server.login(config["webchecker_email_address"], config["webchecker_email_password"])
 
-def send_alerts(msg: str) -> None:
-	print(msg)
-
+def send_alert_emails(msg: str) -> None:
 	try: email_server.sendmail(
 		config["webchecker_email_address"],
 		config["alert_email_addresses"],
@@ -64,25 +62,26 @@ def send_alerts(msg: str) -> None:
 	)
 	except Exception as e: print(f"ERROR: Failed to send alert email\n{str(e)}")
 
-	# TODO: IPC for GUI
-
 print("Requesting OpenAI session...")
 openai_client = OpenAI(api_key=config["openai_api_key"])
 
 print("Running")
-while True:
+while True: # TODO: Run in another (daemon) thread
 	for target_website in config["target_websites"]:
 		print(f"Checking '{target_website}' ...")
 
+		# TODO: Update data for web GUI
+		error_msg = None
 		try: uo = urllib.request.urlopen(target_website)
 		except urllib.error.URLError as e:
-			send_alerts(f"URLError encountered for '{target_website}'\nReason: {str(e.reason)}")
-			continue
+			error_msg = f"URLError encountered for '{target_website}'\nReason: {str(e.reason)}"
 		except urllib.error.HTTPError as e:
-			send_alerts(f"HTTPError encountered for '{target_website}'\nHTTP code: {str(e.code)}\nReason: {str(e.reason)}")
-			continue
+			error_msg = f"HTTPError encountered for '{target_website}'\nHTTP code: {str(e.code)}\nReason: {str(e.reason)}"
 		except Exception as e:
-			send_alerts(f"Unknown exception encountered for '{target_website}'\n{str(e)}")
+			error_msg = f"Unknown exception encountered for '{target_website}'\n{str(e)}"
+		if error_msg:
+			print(error_msg)
+			send_alert_emails(error_msg)
 			continue
 
 		soup = BeautifulSoup(uo.read(), features="html.parser")
@@ -106,13 +105,20 @@ while True:
 			
 			for result in response.results:
 				if result.flagged == True:
-					send_alerts(
+					# TODO: Update data for web GUI
+					# TODO: Extract and send only `True` categories
+					msg = (
 						f"Potentially inappropriate content found on '{target_website}':\n"
 						f"\nCategories:\n{str(result.categories).replace(" ", "\n")}\n"
 						f"\nWithin input:\n{chunk}\n"
-						)
+					)
+					print(msg)
+					send_alert_emails(msg)
 			
 			time.sleep(2.01) # because omni-moderation-latest Requests-Per-Minute rate limit = 500 RPM (on tiers 1 & 2)
 
 	print(f"Finished checking target websites, sleeping for {str(config["check_interval"])} seconds...")
 	time.sleep(config["check_interval"])
+
+
+# TODO: Web GUI (const template string -- implementation -- run())
