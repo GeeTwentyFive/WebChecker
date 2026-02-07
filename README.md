@@ -43,6 +43,7 @@ It is recommended to use a minimum tier 2 OpenAI account due to there being no d
         "target2@example.com"
     ],
     "openai_api_key": "sk-proj-EXAMPLE",
-    "check_interval": 3600.0
+    "check_interval": 3600.0,
+    "web_gui_port": 50000
 }
 ```
