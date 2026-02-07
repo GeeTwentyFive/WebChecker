@@ -16,8 +16,11 @@ Config:
 - `"alert_email_addresses"` - list of email addresses to alert
 - `"openai_api_key"` - OpenAI API key
 - `"check_interval"` = how frequently to check websites in provided `"target_websites"` list (in seconds)
+- `"web_gui_port"` = port used for web GUI
 
 Then, and for all subsequent usages, run: `python WebChecker.py`
+
+Provides a web GUI bound to all addresses (0.0.0.0) on provided port `"web_gui_port"`
 
 It is recommended to use a minimum tier 2 OpenAI account due to there being no daily rate limits for the moderation API
 (to see OpenAI API limits for your account's tier: https://platform.openai.com/settings/organization/limits)
