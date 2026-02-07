@@ -6,7 +6,7 @@ import smtplib
 import ssl
 import urllib.request
 import urllib.error
-from threading import Thread
+from threading import Thread, Lock
 
 from bs4 import BeautifulSoup
 from openai import OpenAI
@@ -25,9 +25,6 @@ DEFAULT_CONFIG = {
 	"check_interval": 3600.0,
 	"web_gui_port": 50000
 }
-
-
-website_states = {} # TODO
 
 
 if not os.path.isfile(CONFIG_FILE_NAME):
@@ -71,12 +68,23 @@ def send_alert_emails(msg: str) -> None:
 print("Requesting OpenAI session...")
 openai_client = OpenAI(api_key=config["openai_api_key"])
 
+website_states = {}
+website_states_lock = Lock()
+def update_website_state(name, state=""):
+	if name not in config["target_websites"]: raise IndexError
+
+	global website_states
+	with website_states_lock:
+		website_states[name] = state
+
 def checker_loop():
 	while True:
 		for target_website in config["target_websites"]:
+			if target_website not in website_states.keys():
+				update_website_state(target_website)
+
 			print(f"Checking '{target_website}' ...")
 
-			# TODO: Update `website_states` for web GUI
 			error_msg = None
 			try: uo = urllib.request.urlopen(target_website)
 			except urllib.error.URLError as e:
@@ -84,10 +92,11 @@ def checker_loop():
 			except urllib.error.HTTPError as e:
 				error_msg = f"HTTPError encountered for '{target_website}'\nHTTP code: {str(e.code)}\nReason: {str(e.reason)}"
 			except Exception as e:
-				error_msg = f"Unknown exception encountered for '{target_website}'\n{str(e)}"
+				error_msg = f"Unexpected exception encountered for '{target_website}':\n{str(e)}"
 			if error_msg:
 				print(error_msg)
 				send_alert_emails(error_msg)
+				update_website_state(target_website, error_msg)
 				continue
 
 			soup = BeautifulSoup(uo.read(), features="html.parser")
@@ -111,8 +120,6 @@ def checker_loop():
 				
 				for result in response.results:
 					if result.flagged == True:
-						# TODO: Update `website_states` for web GUI
-						# TODO: Extract and send only `True` categories
 						msg = (
 							f"Potentially inappropriate content found on '{target_website}':\n"
 							f"\nCategories:\n{str(result.categories).replace(" ", "\n")}\n"
@@ -120,6 +127,7 @@ def checker_loop():
 						)
 						print(msg)
 						send_alert_emails(msg)
+						update_website_state(target_website, msg)
 				
 				time.sleep(2.01) # because omni-moderation-latest Requests-Per-Minute rate limit = 500 RPM (on tiers 1 & 2)
 
@@ -130,12 +138,39 @@ print("Running checker...")
 Thread(target=checker_loop, daemon=True).start()
 
 
-WEB_GUI_TEMPLATE = ( # TODO
-	"<p>TEST</p>"
-)
-
 @bottle.route("/")
-def web_gui(): # TODO
-	return bottle.template(WEB_GUI_TEMPLATE)
+def web_gui():
+	html = (
+		"<style>"
+		"table {width: 100%; border-collapse: collapse;}"
+		"td, th {border: 1px solid #dddddd; text-align: left; padding: 8px;}"
+		"</style>"
 
-#bottle.run(port=config["web_gui_port"])
+		"<script>"
+		"setInterval(function(){location.reload(true)}, 10000)"
+		"</script>"
+
+		"<table>"
+		"<tr>"
+		"<th>" "Name" "</th>"
+		"<th>" "State" "</th>"
+		"</tr>"
+	)
+
+	with website_states_lock:
+		for name, state in website_states.items():
+			html += "<tr>"
+
+			if state != "": html += '<td style="background-color: #ff0000;">'
+			else: html += "<td>"
+			html += name + "</td>"
+
+			html += "<td>" + (state if (state != "") else "OK") + "</td>"
+
+			html += "</tr>"
+
+	html += "</table>"
+
+	return html
+
+bottle.run(host="0.0.0.0", port=config["web_gui_port"])
