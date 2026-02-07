@@ -88,11 +88,11 @@ def checker_loop():
 			error_msg = None
 			try: uo = urllib.request.urlopen(target_website)
 			except urllib.error.URLError as e:
-				error_msg = f"URLError encountered for '{target_website}'\nReason: {str(e.reason)}"
+				error_msg = f"URLError encountered for '{target_website}'\nReason -> {str(e.reason)}"
 			except urllib.error.HTTPError as e:
-				error_msg = f"HTTPError encountered for '{target_website}'\nHTTP code: {str(e.code)}\nReason: {str(e.reason)}"
+				error_msg = f"HTTPError encountered for '{target_website}'\nHTTP code -> {str(e.code)}\nReason -> {str(e.reason)}"
 			except Exception as e:
-				error_msg = f"Unexpected exception encountered for '{target_website}':\n{str(e)}"
+				error_msg = f"Unexpected exception encountered for '{target_website}'\n{str(e)}"
 			if error_msg:
 				print(error_msg)
 				send_alert_emails(error_msg)
@@ -121,9 +121,9 @@ def checker_loop():
 				for result in response.results:
 					if result.flagged == True:
 						msg = (
-							f"Potentially inappropriate content found on '{target_website}':\n"
-							f"\nCategories:\n{str(result.categories).replace(" ", "\n")}\n"
-							f"\nWithin input:\n{chunk}\n"
+							f"Potentially inappropriate content found on '{target_website}'\n"
+							f"\nCategories -> \n{str(result.categories).replace(" ", "\n")}\n"
+							f"\nWithin input -> \n{chunk}\n"
 						)
 						print(msg)
 						send_alert_emails(msg)
